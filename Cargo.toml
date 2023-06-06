@@ -1,0 +1,11 @@
+[package]
+name = "compute-qdrant-emb-json"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.71"
+indicatif = "0.17.5"
+rust-bert = { version = "0.21.0", features = ["download-libtorch"] }
+serde = "1.0.163"
+serde_json = "1.0.96"
