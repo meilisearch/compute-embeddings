@@ -54,12 +54,12 @@ fn main() -> anyhow::Result<()> {
         .create_model()?;
 
     let mut points = Vec::new();
-    for (id, document) in documents.into_iter().enumerate().progress() {
-        let vector = compute_embedding(&model, &document)?;
+    for (id, payload) in documents.into_iter().enumerate().progress() {
+        let vector = compute_embedding(&model, &payload)?;
         points.push(Point {
             id,
             vector,
-            payload: document,
+            payload,
         });
     }
 
