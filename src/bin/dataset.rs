@@ -1,3 +1,4 @@
+use clap::{Parser, ValueEnum};
 use std::io::{self, BufReader, BufWriter};
 use std::time::Instant;
 
@@ -28,6 +29,8 @@ struct Input {
     rating: u32,
     #[serde(rename = "objectID")]
     object_id: String,
+    #[serde(skip_deserializing, skip_serializing_if = "Option::is_none")]
+    _vector: Option<Vec<f32>>,
 }
 
 impl Input {
@@ -64,7 +67,30 @@ struct Point {
     payload: Input,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+enum DocumentStyle {
+    Meilisearch,
+    Qdrant,
+}
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// The style of the output documents
+    #[arg(long)]
+    documents_style: DocumentStyle,
+
+    /// Number of documents processed at the same time.
+    #[arg(long, default_value_t = 4)]
+    batched_documents: usize,
+}
+
 fn main() -> anyhow::Result<()> {
+    let Args {
+        documents_style,
+        batched_documents,
+    } = Args::parse();
+
     let reader = BufReader::new(io::stdin());
     let documents: Vec<Input> = serde_json::from_reader(reader)?;
 
@@ -78,29 +104,48 @@ fn main() -> anyhow::Result<()> {
 
     eprintln!("It took {:.02?} to initialize the model.", now.elapsed());
 
-    let mut points = Vec::new();
+    let mut output = Vec::new();
     for chunk in documents
         .into_iter()
         .enumerate()
         .progress_with(progress_bar)
-        .chunks(4)
+        .chunks(batched_documents)
         .into_iter()
     {
         let chunk: Vec<_> = chunk.collect();
         let sentences: Vec<_> = chunk.iter().map(|(_, payload)| payload.text()).collect();
         let vectors = model.encode(&sentences)?;
-        for ((id, payload), vector) in chunk.into_iter().zip(vectors) {
-            points.push(Point {
-                id,
-                vector,
-                payload,
-            });
+        for entry in chunk.into_iter().zip(vectors) {
+            output.push(entry);
         }
     }
 
-    let output = Output { points };
-    let writer = BufWriter::new(io::stdout());
-    serde_json::to_writer_pretty(writer, &output)?;
+    match documents_style {
+        DocumentStyle::Meilisearch => {
+            let output: Vec<_> = output
+                .into_iter()
+                .map(|((_, mut payload), vector)| {
+                    payload._vector = Some(vector);
+                    payload
+                })
+                .collect();
+            let writer = BufWriter::new(io::stdout());
+            serde_json::to_writer_pretty(writer, &output)?;
+        }
+        DocumentStyle::Qdrant => {
+            let points = output
+                .into_iter()
+                .map(|((id, payload), vector)| Point {
+                    id,
+                    vector,
+                    payload,
+                })
+                .collect();
+            let output = Output { points };
+            let writer = BufWriter::new(io::stdout());
+            serde_json::to_writer_pretty(writer, &output)?;
+        }
+    }
 
     Ok(())
 }

@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.71"
+clap = { version = "4.3.2", features = ["derive"] }
 indicatif = "0.17.5"
 itertools = "0.10.5"
 rust-bert = { version = "0.21.0", features = ["download-libtorch"] }
