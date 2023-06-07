@@ -1,5 +1,6 @@
 [package]
 name = "compute-embeddings"
+description = "A small tool to compute the embeddings of a list of JSON documents"
 version = "0.1.0"
 edition = "2021"
 
