@@ -10,69 +10,6 @@ use rust_bert::pipelines::sentence_embeddings::{
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Input {
-    name: String,
-    description: String,
-    brand: String,
-    categories: Vec<String>,
-    #[serde(rename = "hierarchicalCategories")]
-    hierarchical_categories: Map<String, Value>,
-    #[serde(rename = "type")]
-    _type: String,
-    price: f32,
-    price_range: String,
-    image: String,
-    url: String,
-    free_shipping: bool,
-    popularity: u32,
-    rating: u32,
-    #[serde(rename = "objectID")]
-    object_id: String,
-    #[serde(skip_deserializing, skip_serializing_if = "Option::is_none")]
-    _vector: Option<Vec<f32>>,
-}
-
-impl Input {
-    fn text(&self) -> String {
-        let Input {
-            name,
-            description,
-            brand,
-            categories,
-            _type,
-            object_id,
-            ..
-        } = self;
-
-        let categories = categories.join(" ");
-        format!("{name} {description} {brand} {categories} {_type} {object_id}")
-    }
-}
-
-// {
-//   "points": [
-//     {"id": 1, "vector": [0.05, 0.61, 0.76, 0.74], "payload": {"city": "Berlin" }}
-//   ]
-// }
-#[derive(Debug, Serialize)]
-struct Output {
-    points: Vec<Point>,
-}
-
-#[derive(Debug, Serialize)]
-struct Point {
-    id: usize,
-    vector: Vec<f32>,
-    payload: Input,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
-enum DocumentStyle {
-    Meilisearch,
-    Qdrant,
-}
-
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
@@ -83,12 +20,16 @@ struct Args {
     /// Number of documents processed at the same time.
     #[arg(long, default_value_t = 4)]
     batched_documents: usize,
+
+    /// The fields to concatenate in this specific order to generate the embeddings.
+    documents_fields: Vec<String>,
 }
 
 fn main() -> anyhow::Result<()> {
     let Args {
         documents_style,
         batched_documents,
+        documents_fields,
     } = Args::parse();
 
     let reader = BufReader::new(io::stdin());
@@ -113,7 +54,10 @@ fn main() -> anyhow::Result<()> {
         .into_iter()
     {
         let chunk: Vec<_> = chunk.collect();
-        let sentences: Vec<_> = chunk.iter().map(|(_, payload)| payload.text()).collect();
+        let sentences: Vec<_> = chunk
+            .iter()
+            .map(|(_, payload)| payload.text(&documents_fields))
+            .collect();
         let vectors = model.encode(&sentences)?;
         for entry in chunk.into_iter().zip(vectors) {
             output.push(entry);
@@ -148,4 +92,89 @@ fn main() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Input {
+    #[serde(flatten)]
+    fields: Map<String, Value>,
+    #[serde(skip_deserializing, skip_serializing_if = "Option::is_none")]
+    _vector: Option<Vec<f32>>,
+}
+
+impl Input {
+    fn text<I>(&self, fields: I) -> String
+    where
+        I: IntoIterator,
+        I::Item: AsRef<str>,
+    {
+        let mut internal_buffer = String::new();
+        let mut text = String::new();
+        for field_name in fields {
+            if let Some(value) = self.fields.get(field_name.as_ref()) {
+                internal_buffer.clear();
+                if let Some(t) = json_to_string(value, &mut internal_buffer) {
+                    text.push_str(t);
+                    text.push(' ');
+                }
+            }
+        }
+
+        text
+    }
+}
+
+/// Transform a JSON value into a string that can be indexed.
+fn json_to_string<'a>(value: &'a Value, buffer: &'a mut String) -> Option<&'a str> {
+    fn inner(value: &Value, output: &mut String) -> bool {
+        use std::fmt::Write;
+        match value {
+            Value::Null | Value::Object(_) => false,
+            Value::Bool(boolean) => write!(output, "{}", boolean).is_ok(),
+            Value::Number(number) => write!(output, "{}", number).is_ok(),
+            Value::String(string) => write!(output, "{}", string).is_ok(),
+            Value::Array(array) => {
+                let mut count = 0;
+                for value in array {
+                    if inner(value, output) {
+                        output.push_str(" ");
+                        count += 1;
+                    }
+                }
+                // check that at least one value was written
+                count != 0
+            }
+        }
+    }
+
+    if let Value::String(string) = value {
+        Some(string)
+    } else if inner(value, buffer) {
+        Some(buffer)
+    } else {
+        None
+    }
+}
+
+// {
+//   "points": [
+//     {"id": 1, "vector": [0.05, 0.61, 0.76, 0.74], "payload": {"city": "Berlin" }}
+//   ]
+// }
+#[derive(Debug, Serialize)]
+struct Output {
+    points: Vec<Point>,
+}
+
+#[derive(Debug, Serialize)]
+struct Point {
+    id: usize,
+    vector: Vec<f32>,
+    payload: Input,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+enum DocumentStyle {
+    Meilisearch,
+    Qdrant,
 }
