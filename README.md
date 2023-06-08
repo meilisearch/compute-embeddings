@@ -39,7 +39,7 @@ cargo install --path .
 ## Usage for Meilisearch
 
 ```bash
-cat file.json | compute-embeddings --batched-documents 8 --documents-style meilisearch > file-with-embeddings.json
+cat file.json | ce-dataset --batched-documents 8 --documents-style meilisearch > file-with-embeddings.json
 ```
 
 ### Example Output File
@@ -80,7 +80,7 @@ cat file.json | compute-embeddings --batched-documents 8 --documents-style meili
 ## Usage for Meilisearch
 
 ```bash
-cat file.json | compute-embeddings --batched-documents 8 --documents-style qdrant > file-with-embeddings.json
+cat file.json | ce-dataset --batched-documents 8 --documents-style qdrant > file-with-embeddings.json
 ```
 
 ### Example Output File

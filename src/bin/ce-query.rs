@@ -7,14 +7,17 @@ use rust_bert::pipelines::sentence_embeddings::{
 
 fn main() -> anyhow::Result<()> {
     let query = env::args().nth(1).unwrap_or_default();
+
     let now = Instant::now();
     // Set-up sentence embeddings model
     let model = SentenceEmbeddingsBuilder::remote(SentenceEmbeddingsModelType::AllMiniLmL6V2)
         .create_model()?;
-
     eprintln!("It took {:.02?} to initialize the model.", now.elapsed());
 
+    let now = Instant::now();
     let vector = model.encode(&[&query])?.remove(0);
+    eprintln!("It took {:.02?} to encode the query.", now.elapsed());
+
     let writer = io::stdout();
     serde_json::to_writer(writer, &vector)?;
 
