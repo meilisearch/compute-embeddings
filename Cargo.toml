@@ -12,3 +12,4 @@ itertools = "0.10.5"
 rust-bert = { version = "0.21.0", features = ["download-libtorch"] }
 serde = "1.0.163"
 serde_json = "1.0.96"
+ureq = { version = "2.6.2", features = ["json", "charset"] }
