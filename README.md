@@ -3,6 +3,8 @@ A small tool to compute the embeddings of a list of JSON documents
 
 ## Installation
 
+You must have the Rust toolchain installed, it is pretty easy to install [by following the official tutorial](https://www.rust-lang.org/tools/install). Once you have it, simply install the two binaries by running the following ocmmand:
+
 ```bash
 cargo install --path .
 ```
