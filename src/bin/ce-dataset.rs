@@ -1,9 +1,7 @@
 use clap::{Parser, ValueEnum};
 use std::env::var;
 use std::io::{self, BufReader, BufWriter};
-
-use std::time::{Instant};
-
+use std::time::Instant;
 
 use compute_embeddings::{openai_vectors, SemanticApi};
 use indicatif::{ProgressBar, ProgressIterator, ProgressStyle};
@@ -49,8 +47,7 @@ fn main() -> anyhow::Result<()> {
 
     // Set-up sentence embeddings model
     let now = Instant::now();
-    let model = SentenceEmbeddingsBuilder::remote(SentenceEmbeddingsModelType::AllMiniLmL6V2)
-        .create_model()?;
+    let mut model = None;
 
     eprintln!("It took {:.02?} to initialize the model.", now.elapsed());
 
@@ -73,7 +70,20 @@ fn main() -> anyhow::Result<()> {
                 let api_key = var("OPENAI_API_KEY").expect("missing OPENAI_API_KEY env variable");
                 openai_vectors(sentences, &api_key)?
             }
-            SemanticApi::AllMiniLmL6V2 => model.encode(&sentences)?,
+            SemanticApi::AllMiniLmL6V2 => {
+                let model = match model.as_ref() {
+                    Some(model) => model,
+                    None => {
+                        let m = SentenceEmbeddingsBuilder::remote(
+                            SentenceEmbeddingsModelType::AllMiniLmL6V2,
+                        )
+                        .create_model()?;
+                        model.get_or_insert(m)
+                    }
+                };
+
+                model.encode(&sentences)?
+            }
         };
 
         for entry in chunk.into_iter().zip(vectors) {
