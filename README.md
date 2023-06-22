@@ -65,7 +65,7 @@ cat file.json | cargo run --release --bin ce-dataset -- --batched-documents 8 --
     "popularity": 10000,
     "rating": 2,
     "objectID": "1696302",
-    "_vector": [
+    "_vectors": [
       -0.10141887,
       0.009569897,
       0.04121973

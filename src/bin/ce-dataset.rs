@@ -96,7 +96,7 @@ fn main() -> anyhow::Result<()> {
             let output: Vec<_> = output
                 .into_iter()
                 .map(|((_, mut payload), vector)| {
-                    payload._vector = Some(vector);
+                    payload._vectors = Some(vector);
                     payload
                 })
                 .collect();
@@ -126,7 +126,7 @@ struct Input {
     #[serde(flatten)]
     fields: Map<String, Value>,
     #[serde(skip_deserializing, skip_serializing_if = "Option::is_none")]
-    _vector: Option<Vec<f32>>,
+    _vectors: Option<Vec<f32>>,
 }
 
 impl Input {

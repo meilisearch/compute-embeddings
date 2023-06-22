@@ -39,9 +39,12 @@ pub fn openai_vectors(
                 "input": sentences,
             }));
         match result {
-            Err(Error::Status(503 | 429, response)) => {
+            Err(Error::Status(status, response)) if matches!(status, 503 | 429 | 500) => {
                 let response = response.into_string()?;
-                eprintln!("Retrying after {:.02?}: {}", wait_for, response);
+                eprintln!(
+                    "Retrying after {:.02?}: status {} {}",
+                    wait_for, status, response
+                );
                 thread::sleep(wait_for);
                 wait_for *= 2;
             }
